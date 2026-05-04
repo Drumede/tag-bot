@@ -39,11 +39,11 @@ def tags_file_update(serverid:int,updated_tags:dict):
 
 def tag_main(selected_tag:str,server_tags:dict):
     if selected_tag in server_tags.keys():
-        return server_tags[selected_tag]
+        return server_tags[selected_tag]["content"]
     else:
         return f"tag `{selected_tag}` does not exist"
 
-def tag_create(data:str,server_tags:dict):
+def tag_create(data:str,server_tags:dict,user:discord.Member):
     if data == None:
         return "nothing specified"
     cutoff = data.find(" ")
@@ -51,18 +51,24 @@ def tag_create(data:str,server_tags:dict):
         return "no tag contents specified"
     tag_name = data[:cutoff].strip()
     tag_contents = data[cutoff + 1:].strip()
-    server_tags[tag_name] = tag_contents
-    return f"tag `{tag_name}` created"
+    if tag_name in server_tags.keys():
+        if server_tags[tag_name]["user"] != user.id and not user.guild_permissions.administrator:
+            return f"missing permissions for tag `{tag_name}`"
+    server_tags[tag_name] = {"content":tag_contents,"user":user.id}
+    if tag_name in server_tags.keys():
+        return f"tag `{tag_name}` updated"
+    else:
+        return f"tag `{tag_name}` created"
 
 def tag_random(server_tags:dict):
     chosen_tag = random.choice(list(server_tags))
-    tag_contents = server_tags[chosen_tag]
+    tag_contents = server_tags[chosen_tag]["content"]
     return f"showing tag: `{chosen_tag}`\n\n{tag_contents}"
 
 def tag_list(server_tags:dict):
     return "\n".join(server_tags.keys())
 
-def tag_remove(data:str,server_tags:dict):
+def tag_remove(data:str,server_tags:dict,user:discord.Member):
     if data == None:
         return "no tag specified"
     cutoff = data.find(" ")
@@ -71,6 +77,8 @@ def tag_remove(data:str,server_tags:dict):
     selected_tag = data[:cutoff].strip()
     if not selected_tag in server_tags.keys():
         return f"tag `{selected_tag}` does not exist"
+    if server_tags[selected_tag]["user"] != user.id and not user.guild_permissions.administrator:
+        return f"missing permissions for tag `{selected_tag}`"
     server_tags.pop(selected_tag)
     return f"tag `{selected_tag}` removed"
 
@@ -80,7 +88,7 @@ async def tag(ctx,command:str,*,data:str = None):
     if command == None:
         await ctx.send("no tag specified")
     if command == "create":
-        retstring = tag_create(data,tags)
+        retstring = tag_create(data,tags,ctx.author)
         await ctx.send(retstring)
         tags_file_update(ctx.guild.id,tags)
         return
@@ -93,7 +101,7 @@ async def tag(ctx,command:str,*,data:str = None):
         await ctx.send(taglist)
         return
     if command == "remove":
-        retstring = tag_remove(data,tags)
+        retstring = tag_remove(data,tags,ctx.author)
         await ctx.send(retstring)
         tags_file_update(ctx.guild.id,tags)
         return
